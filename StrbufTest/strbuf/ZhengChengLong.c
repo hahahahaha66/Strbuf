@@ -144,19 +144,27 @@ void strbuf_insert(struct strbuf *sb, size_t pos, const void *data, size_t len){
 }
 //Part 2C
 void strbuf_ltrim(struct strbuf *sb){
-    char*str1=sb->buf;
-    char*str2=sb->buf;
-    while(*str1!='\0'){
-        if(!isspace(*str1)){
-            str2=str1;
-            str1++;
-        }
-        str1++;
+    int start=0;
+    while(start<sb->len&&isspace((unsigned char)sb->buf[start])){
+        start++;
     }
-    *str2='\0';
-    sb->len=strlen(str2);
+    if(start>0){
+        int len=sb->len-start;
+        memmove(sb->buf,sb->buf+start,len);
+        sb->buf[len]='\0';
+        sb->len=len;
+    }
 }
-void strbuf_rtrim(struct strbuf *sb);
+void strbuf_rtrim(struct strbuf *sb){
+    int end=sb->len-1;
+    while(end>=0&&isspace((unsigned char)sb->buf[end])){
+        end--;
+    }
+    if(end!=sb->len-1){
+        sb->len=end+1;
+        sb->buf[end+1]='\0';
+    }
+}
 void strbuf_remove(struct strbuf *sb, size_t pos, size_t len){
     memmove(sb->buf+pos,sb->buf+pos+len,sb->len-pos-len);
     for(int i=sb->len-len;i<sb->len+len;i++){
@@ -189,7 +197,7 @@ struct strbuf** strbuf_split_buf(const char* str, size_t len, int terminator, in
     int start=0;
     int count=0;
     while(count<max){
-        char*temp=strchr(str+start,terminator);
+        const char*temp=strchr(str+start,terminator);
         if(temp==NULL){
             int len1=len-start;
             result[count]=(struct strbuf*)malloc(sizeof(struct strbuf));
@@ -205,7 +213,7 @@ struct strbuf** strbuf_split_buf(const char* str, size_t len, int terminator, in
             result[count]=(struct strbuf*)malloc(sizeof(struct strbuf));
             result[count]->buf=(char*)malloc(len2+1);
             strncpy(result[count]->buf,temp,len2);
-            result[count]->alloc=len2=1;
+            result[count]->alloc=len2+1;
             result[count]->len=len2;
             result[count]->buf[len2]='\0';
             start=temp-str+1;
