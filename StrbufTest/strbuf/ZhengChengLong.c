@@ -47,8 +47,9 @@ char *strbuf_get_mid_buf(char *target_buf, int begin, int end, int len);
 #endif
 //Part 2A
 void strbuf_init(struct strbuf *sb, size_t alloc){
-    sb->buf=(char*)malloc(alloc*(sizeof(char)));
+    sb->buf=(char*)malloc(alloc);
     sb->alloc=alloc;
+    sb->buf[alloc]='\0';
 }
 void strbuf_attach(struct strbuf *sb, void *str, size_t len, size_t alloc){
     if(sb->buf!=NULL){
@@ -61,7 +62,9 @@ void strbuf_attach(struct strbuf *sb, void *str, size_t len, size_t alloc){
 }
 void strbuf_release(struct strbuf *sb){
     free(sb->buf);
-    free(sb);
+    sb->buf=NULL;
+    sb->len=0;
+    sb->alloc=0;
 }
 void strbuf_swap(struct strbuf *a, struct strbuf *b){
     int temp_len = a->len;
@@ -89,16 +92,16 @@ int strbuf_cmp(const struct strbuf *first, const struct strbuf *second){
     return 0;
 }
 void strbuf_reset(struct strbuf *sb){
-    if(sb->buf!=NULL){
-        free(sb->buf);
-    }
-    sb->buf=NULL;
-    sb->alloc=0;
     sb->len=0;
+    sb->buf[0]='\0';
 }
 //Part 2B
 void strbuf_grow(struct strbuf *sb, size_t extra){
-    while(sb->alloc-sb->len-extra<0){
+    while(sb->alloc<sb->len+extra){
+        char*temp=(char*)malloc(sb->alloc*2);
+        memcpy(temp,sb->buf,sb->len);
+        free(sb->buf);
+        sb->buf=temp;
         sb->alloc*=2;
     }
 }
@@ -130,10 +133,14 @@ void strbuf_addbuf(struct strbuf *sb, const struct strbuf *sb2){
     sb->buf[sb->len]='\0';
 }
 void strbuf_setlen(struct strbuf *sb, size_t len){
+    if(sb->alloc<len){
+    strbuf_grow(sb,len-sb->alloc);
+    }
     sb->len=len;
+    sb->buf[len]='\0';
 }
 size_t strbuf_avail(const struct strbuf *sb){
-    return sb->alloc-sb->len;
+    return sb->alloc-sb->len-1;
 }
 void strbuf_insert(struct strbuf *sb, size_t pos, const void *data, size_t len){
     strbuf_grow(sb,len);
@@ -166,10 +173,10 @@ void strbuf_rtrim(struct strbuf *sb){
     }
 }
 void strbuf_remove(struct strbuf *sb, size_t pos, size_t len){
-    memmove(sb->buf+pos,sb->buf+pos+len,sb->len-pos-len);
-    for(int i=sb->len-len;i<sb->len+len;i++){
-        sb->buf[i]=' ';
+    if(pos+len>sb->len){
+        return ;
     }
+    memmove(sb->buf+pos,sb->buf+pos+len,sb->len-pos-len);
     sb->len-=len;
     sb->buf[sb->len]='\0';
 }
@@ -183,17 +190,16 @@ ssize_t strbuf_read(struct strbuf *sb, int fd, size_t hint){
 }
 int strbuf_getline(struct strbuf *sb, FILE *fp){
     char c;
-    int count=0;
     c=fgetc(fp);
     while(c!='\n'&&c!=EOF){
-        *(sb->buf+count++)=c;
+        strbuf_addch(sb,c);
         c=fgetc(fp);
     }
-    return count;
+    return sb->len;
 }
 //CHALLENGE
 struct strbuf** strbuf_split_buf(const char* str, size_t len, int terminator, int max){
-    struct strbuf **result=(struct strbuf**)malloc(max*sizeof(struct strbuf*));
+    struct strbuf **result=(struct strbuf**)malloc((max+1)*sizeof(struct strbuf*));
     int start=0;
     int count=0;
     while(count<max){
@@ -206,6 +212,7 @@ struct strbuf** strbuf_split_buf(const char* str, size_t len, int terminator, in
             result[count]->alloc=len1+1;
             result[count]->len=len1;
             result[count]->buf[len1]='\0';
+            result[count+1]=NULL;
             break;
         }
         else{
@@ -218,20 +225,22 @@ struct strbuf** strbuf_split_buf(const char* str, size_t len, int terminator, in
             result[count]->buf[len2]='\0';
             start=temp-str+1;
         }
+        if(count==max){
+            result[count]=NULL;
+        }
         count++;
     }
     return result;
 }
 bool strbuf_begin_judge(char* target_str, const char* str, int strlen){
-    return !strncasecmp(target_str, str, strlen);
+    return str==NULL||!strncmp(target_str, str, strlen);
 }
 char* strbuf_get_mid_buf(char* target_buf, int begin, int end, int len){
-    if(begin<0||len<end||begin>end){
+    if(begin<0||len<=end||begin>end){
         return NULL;
     }
     char*result=(char*)malloc(end-begin+1);
-    strncpy(result,target_buf+begin,end-begin);
+    memcpy(result,target_buf+begin,end-begin);
     result[end-begin]='\0';
     return result;
-     
 }
